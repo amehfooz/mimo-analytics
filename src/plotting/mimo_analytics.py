@@ -17,6 +17,11 @@ class mimo_analytics:
         self.mu_tx_counter = defaultdict(int)
         self.su_tx_counter = defaultdict(int)
 
+        self.color_options = [
+            "#ff0000", "#00ff00", "#0000ff", "#4a0055", "#552200", "#9999ff", "#ffff00", 
+            "#ff00ff", "#10333a", "#ff9900", "#ff0099", "#00ff99", "#0099ff", "#99ff00",
+            "#9900ff", "#990000", "#009900", "#000099", "#555555", "#ff9999", "#114400"
+        ]
         self.colors = {}
         self.handles = {}
 
@@ -44,7 +49,6 @@ class mimo_analytics:
         else:
             self.packet_index = self.time_index[start]
 
-        print "\nStart:", self.start_time - self.timestamps[0], "Index:", self.packet_index
         plt.cla()
 
         while True:
@@ -97,13 +101,18 @@ class mimo_analytics:
         self.slice = slice
         self.bar_width = self.slice/30
 
+        color_index = 0
         # Process plotting data
         for i in self.MU_groups:
             for mac in i['addrs'].strip("[").replace("]", "").replace(" ", "").split(","):
                 if mac in self.colors:
                     continue
-                    
-                self.colors[mac] = np.random.rand(3,1)
+                
+                if color_index < len(self.color_options):
+                    self.colors[mac] = self.color_options[color_index]
+                    color_index += 1
+                else:
+                    self.colors[mac] = np.random.rand(3,1)
 
             t = float(i['time'].split(":")[1])*60 + float(i['time'].split(":")[2])
             self.timestamps.append(t)
@@ -146,9 +155,9 @@ class mimo_analytics:
         plt.ylabel("Number of NDPAs")
 
         plt.show()
-
+######################################################################################################################################
 mu = mimo_analytics("15_1SS.csv")
-mu.plot_su_mu_count_per_addr()
+mu.plot_scrolling_graph()
 
 
 
