@@ -75,6 +75,8 @@ class mimo_analytics:
         labels = [mac[len(mac)-6:len(mac)-1] for mac in self.handles]
         handle = [self.handles[mac] for mac in self.handles]
 
+        plt.ylabel('SNR')
+        plt.xlabel('Time (s)')
 
         plt.legend(handle, labels, loc ='upper right', ncol = 5)
 
@@ -94,12 +96,12 @@ class mimo_analytics:
         else:
             exit()
 
-    def plot_scrolling_graph(self, slice=0.015):
+    def plot_scrolling_graph(self, slice=0.02):
         plt.style.use("ggplot")
-        plt.clf()
+
         self.fig, self.ax = plt.subplots()
         self.slice = slice
-        self.bar_width = self.slice/30
+        self.bar_width = self.slice/40
 
         color_index = 0
         # Process plotting data
@@ -124,6 +126,12 @@ class mimo_analytics:
 
         self.fig.canvas.mpl_connect('key_press_event', self.keypress)  
         self.refresh_scrolling_graph(1)
+
+        try:
+            plt.get_current_fig_manager().window.showMaximized()
+        except:
+            pass
+
         plt.show()
 
 ######################################################################################################################################
@@ -154,8 +162,99 @@ class mimo_analytics:
         plt.xlabel("Mac Address")
         plt.ylabel("Number of NDPAs")
 
+        try:
+            plt.get_current_fig_manager().window.showMaximized()
+        except:
+            pass
+
         plt.show()
 ######################################################################################################################################
+    def scroll(self, event):
+        if event.key == 'right':
+            self.start += 20
+            self.end += 20
+        elif event.key == 'left':
+            self.start -= 20
+            self.end -= 20
+
+        while len(self.text):
+            t = self.text.pop()
+            t.remove()
+
+        # Label bars
+        for rect, labels in zip([p.patches for p in self.handles[max(0,self.start-1):self.end-1]], self.macaddrs[max(0, self.start-1):self.end-1]):
+            height = rect[0].get_height()
+            for label in labels:
+                label = label.replace("\'", "")[12:]
+                t = self.ax.text(rect[0].get_x() + rect[0].get_width()/2, height+4, label, ha='center', va='bottom', fontsize=self.fsize)
+                self.text.append(t)
+                height += 1.25*self.fsize
+        plt.xlim(self.start-0.1, self.end)
+        self.fig.canvas.draw()
+
+    def plot_group_counts(self, fsize=9):
+        self.start = 1
+        self.end = 21
+        self.fsize = fsize
+        self.text = []
+
+        plt.style.use("ggplot")
+        self.fig, self.ax = plt.subplots()
+
+        color_index = 0
+        group_count = defaultdict(int)
+        group_macs = {}
+        group_color = {}
+        # Process plotting data
+        for i in self.MU_groups:
+            macs = i['addrs'].strip("[").replace("]", "").replace(" ", "").split(",")
+            i['Gid'] = int(i['Gid'])
+            
+            if i['Gid'] not in group_color:
+                if color_index < len(self.color_options):
+                    group_color[i['Gid']] = self.color_options[color_index]
+                    color_index += 1
+                else:
+                    group_color[i['Gid']] = np.random.rand(3,1)
+
+            group_count[i['Gid']] += 1
+            group_macs[i['Gid']] = macs
+
+        self.handles = []
+        self.macaddrs = []
+        counts = []
+
+        ax = plt.gca()
+        # Plot all bars
+        for key in sorted(group_count):
+            p = plt.bar(key, group_count[key], 0.7, color=group_color[key])
+            self.handles.append(p)
+            self.macaddrs.append(group_macs[key])
+
+         # Label bars
+        for rect, labels in zip([p.patches for p in self.handles[max(0,self.start-1):self.end-1]], self.macaddrs[max(0,self.start-1):self.end-1]):
+            height = rect[0].get_height()
+            for label in labels:
+                label = label.replace("\'", "")[12:]
+                t = self.ax.text(rect[0].get_x() + rect[0].get_width()/2, height+4, label, ha='center', va='bottom', fontsize=self.fsize)
+                self.text.append(t)
+                height += 1.25*self.fsize
+
+
+        plt.xticks([key+0.35 for key in sorted(group_count)], [key for key in sorted(group_count)])
+
+        plt.xlim(self.start - 0.1, self.end)
+        plt.xlabel("Group ID")
+        plt.ylabel("Number of NDPAs")
+
+        try:
+            plt.get_current_fig_manager().window.showMaximized()
+        except:
+            pass
+
+        self.fig.canvas.mpl_connect('key_press_event', self.scroll)
+        plt.show()
+
 mu = mimo_analytics("15_1SS.csv")
 mu.plot_scrolling_graph()
 
