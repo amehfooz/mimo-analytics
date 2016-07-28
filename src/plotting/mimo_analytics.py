@@ -9,7 +9,7 @@ from collections import defaultdict
 class mimo_analytics:
     def __init__(self, filename):
         # Read CSV File containing control information
-        with open(filename) as f:
+        with open(str(filename)) as f:
             self.MU_groups = [{k:v for k, v in row.items()}
                 for row in csv.DictReader(f, skipinitialspace=True)]
 
@@ -27,26 +27,33 @@ class mimo_analytics:
         self.start_time = 0
 
         self.timestamps = []
+
+        self.time_index = {}
+
         self.snrs = {}
         self.macs = {}
 
     ###################################################################################################################################
     #                                                     Scrolling Plot Functions                                                    #
     ###################################################################################################################################
-    def refresh_scrolling_graph(self):
-        start = self.start_time
+    def refresh_scrolling_graph(self, direction):
+        start = self.start_time 
 
+        if start not in self.time_index:
+            self.time_index[start] = self.packet_index
+        else:
+            self.packet_index = self.time_index[start]
 
-        self.llast_index = self.last_index
-        self.last_index = self.packet_index
-
+        print "\nStart:", self.start_time - self.timestamps[0], "Index:", self.packet_index
         plt.cla()
 
         while True:
             time = self.timestamps[self.packet_index]
 
-            if time > start + self.slice or self.packet_index >= len(self.timestamps):
+            if time < start or time >= start + self.slice or self.packet_index >= len(self.timestamps):
                 break
+
+            self.packet_index += 1
 
             macs = self.macs[time]
             snrs = self.snrs[time]
@@ -57,8 +64,6 @@ class mimo_analytics:
                 else:
                     self.handles[macs[j]] = plt.bar(time+(j*self.bar_width), int(snrs[j]), self.bar_width, color = self.colors[macs[j]])
 
-            self.packet_index += 1
-
         self.ax.axis = [start, start+self.slice, 0, 65]
         plt.xlim(start - 0.01*self.slice, start+self.slice+(3*self.bar_width))
         plt.ylim(0, 55)
@@ -68,25 +73,26 @@ class mimo_analytics:
 
 
         plt.legend(handle, labels, loc ='upper right', ncol = 5)
-        print self.packet_index, self.last_index
 
         self.fig.canvas.draw()
 
     def keypress(self, event):
+        self.packet_index = max(self.packet_index, 0)
+
         if event.key == 'right':
             self.start_time += self.slice
+            self.refresh_scrolling_graph(1)
+
         elif event.key == 'left':
             self.start_time -= self.slice
-            self.packet_index = self.llast_index
-            print "Indexed back to", self.packet_index
+            self.refresh_scrolling_graph(1)
+
         else:
             exit()
 
-        self.refresh_scrolling_graph()
-
     def plot_scrolling_graph(self, slice=0.015):
         plt.style.use("ggplot")
-        #plt.clf()
+        plt.clf()
         self.fig, self.ax = plt.subplots()
         self.slice = slice
         self.bar_width = self.slice/30
@@ -108,15 +114,41 @@ class mimo_analytics:
         self.start_time = self.timestamps[0]
 
         self.fig.canvas.mpl_connect('key_press_event', self.keypress)  
-        self.refresh_scrolling_graph()
+        self.refresh_scrolling_graph(1)
         plt.show()
 
 ######################################################################################################################################
+    def plot_su_mu_count_per_addr(self):
+        for i in self.MU_groups:
+            macs = i['addrs'].strip("[").replace("]", "").replace(" ", "").split(",")
 
+            if len(macs) > 1:
+                for m in macs:
+                    self.mu_tx_counter[m] += 1
+            elif len(macs) == 1:
+                self.su_tx_counter[macs[0]] += 1
+        plt.style.use("ggplot")
+        plt.clf()
+        N = len(self.mu_tx_counter)
+        ind = np.array(range(0,N))    # the x locations for the groups
 
+        width = 4.0/N       # the width of the bars: can also be len(x) sequence
+        space = 0.01
+
+        plt.xlim(0-2*width, N+2*width)
+        p1 = plt.bar(ind, [self.su_tx_counter[j] for j in self.mu_tx_counter], width, color='c')
+
+        p2 = plt.bar(ind+width+space, [self.mu_tx_counter[j] for j in self.mu_tx_counter], width, color='#ee7722')
+
+        plt.xticks(ind + space/2.0 + width, ([mac[len(mac)-6:len(mac)-1] for mac in self.mu_tx_counter]))
+        plt.legend((p1, p2), ("SU", "MU"))
+        plt.xlabel("Mac Address")
+        plt.ylabel("Number of NDPAs")
+
+        plt.show()
 
 mu = mimo_analytics("15_1SS.csv")
-mu.plot_scrolling_graph(slice=0.03)
+mu.plot_su_mu_count_per_addr()
 
 
 
