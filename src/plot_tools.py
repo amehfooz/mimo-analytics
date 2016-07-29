@@ -6,7 +6,7 @@ from matplotlib.widgets import Slider
 from matplotlib.ticker import FormatStrFormatter
 from collections import defaultdict
 
-class mimo_analytics:
+class plot_tools:
     def __init__(self, filename):
         # Read CSV File containing control information
         with open(str(filename)) as f:
@@ -254,10 +254,6 @@ class mimo_analytics:
 
         self.fig.canvas.mpl_connect('key_press_event', self.scroll)
         plt.show()
-
-mu = mimo_analytics("15_1SS.csv")
-mu.plot_scrolling_graph()
-
 
 
 
